@@ -63,7 +63,13 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path in ('/health','/api/health'):
             return self.send_json(200,{'status':'ok','app':'Janmapatri','version':'5.0'})
         if parsed.path=='/api/transits':
-            try: return self.send_json(200,transits())
+            try:
+                q=parse_qs(parsed.query); given='lat' in q and 'lon' in q
+                lat=float(q['lat'][0]) if given else 22.5726; lon=float(q['lon'][0]) if given else 88.3639
+                zone=TZF.timezone_at(lat=lat,lng=lon) or 'Asia/Kolkata'
+                tz=datetime.now(ZoneInfo(zone)).utcoffset().total_seconds()/3600
+                res=transits(lat=lat,lon=lon,tz=tz); res['place']='your birthplace' if given else 'Kolkata (default)'; res['timezone']=zone
+                return self.send_json(200,res)
             except Exception as e: return self.send_json(500,{'error':str(e)})
         if parsed.path=='/api/places':
             query=parse_qs(parsed.query).get('q',[''])[0].strip()
