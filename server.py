@@ -107,7 +107,12 @@ class Handler(BaseHTTPRequestHandler):
             length=int(self.headers.get('Content-Length','0'))
             data=json.loads(self.rfile.read(length) or b'{}')
             if not all(data.get(k) for k in ('name','birth_local','place')): raise ValueError('Name, date/time and birthplace are required.')
-            resolved=resolve_selected(data.get('selected_place'),data['birth_local'])
+            selected_place=data.get('selected_place')
+            # Override by user-entered place text, not geocoder output.
+            place_text=(str(data.get('place',''))+' '+str((selected_place or {}).get('display_name',''))).lower()
+            if 'kolkata' in place_text or 'calcutta' in place_text:
+                selected_place={'display_name':'Kolkata, West Bengal, India','lat':22.5726,'lon':88.3639,'timezone':'Asia/Kolkata'}
+            resolved=resolve_selected(selected_place,data['birth_local'])
             result=chart(data['birth_local'],resolved['lat'],resolved['lon'],resolved['timezone_offset'])
             result['input'].update({'name':data['name'],'place':data['place'],'resolved_place':resolved['resolved_place'],'timezone':resolved['timezone']})
             return self.send_json(200,result)
