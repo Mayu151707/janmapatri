@@ -1,0 +1,2 @@
+libephemeris==4.0.0
+timezonefinder==6.5.9
