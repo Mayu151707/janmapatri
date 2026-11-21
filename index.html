@@ -58,17 +58,25 @@ function topic(t){const d=curDasha(),hs=t[2],hit=hs.filter(h=>lordOf(h)===d.lord
 function say(t,who,ch){const m=document.createElement('div');m.className='msg '+who;m.textContent=t;
  if(ch){const w=document.createElement('div');w.className='chips';ch.forEach(c=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=c[0];b.dataset.go=c[1];w.appendChild(b)});m.appendChild(w)}
  $('msgs').appendChild(m);m.scrollIntoView({block:'nearest',behavior:'smooth'})}
-function ask(q){q=q.trim();if(!q)return;say(q,'me');$('question').value='';const ql=q.toLowerCase();
- if(!chart){say('Generate your Kundli first, then I can read from your own placements.','bot',[['Open Kundli','p:kundli']]);return}
+function ask(q){
+ q=q.trim();if(!q)return;say(q,'me');$('question').value='';const ql=q.toLowerCase();
+ if(!chart){say('Generate your Kundli first so I can ground the answer in your calculated chart.','bot',[['Open Kundli','p:kundli']]);return}
  const t=TOP.find(x=>x[0].test(ql)),p=chart.planets.find(x=>ql.includes(x.name.toLowerCase()));
- if(t)say(t[1]+'\n\n'+topic(t),'bot',[['See houses','k:houses'],['See Dasha','k:dasha']]);
- else if(/yoga|dosha/.test(ql)){const{Y,D}=yogaData();say('Yogas: '+(Y.length?Y.map(y=>y[0]+' ('+y[2]+')').join('\n'):'none from the rules checked.')+'\n\nDoshas: '+(D.length?D.map(y=>y[0]).join(', '):'none.'),'bot',[['See Yogas','k:yogas']])}
- else if(/panchang|tithi|karana|sunrise/.test(ql)){const p=chart.panchang;say(p?'Born on a '+p.vara+' in '+p.paksha+' paksha, tithi '+p.tithi+'. Yoga: '+p.yoga+'. Karana: '+p.karana+'. Sunrise '+(p.sunrise||'n/a')+'.':'Regenerate your Kundli to see the Panchang.','bot',[['See Panchang','k:panchang']])}
- else if(/lagna|ascendant/.test(ql))say('Your Lagna is '+chart.lagna.sign+' at '+chart.lagna.formatted+'.','bot',[['See chart','k:chart']]);
- else if(/moon|rashi|nakshatra/.test(ql))say('Moon in '+chart.moon.sign+', nakshatra '+chart.moon.nakshatra+', pada '+chart.moon.pada+'.','bot',[['See planets','k:planets']]);
- else if(/dasha|period/.test(ql)){const d=curDasha();say('You are in the '+d.lord+' Mahadasha, from '+d.start+' to '+d.end+'.','bot',[['See Dasha','k:dasha']])}
- else if(p)say(p.name+' is in '+p.sign+' at '+p.degree_text+', house '+p.house+', nakshatra '+p.nakshatra+(p.retrograde?', retrograde':', direct')+'.','bot',[['See planets','k:planets']]);
- else say('I can read career, marriage, wealth, health, foreign travel, education, children and property, or any planet, your Lagna, Moon or Dasha.','bot')}
+ const d=curDasha(),wealthH=[2,5,8,11],careerH=[10,6,2,11],relH=[7,5,1],healthH=[1,6,8,12];
+ const verdict=(topic,hs)=>{const links=hs.filter(h=>lordOf(h)===d.lord||pl(d.lord).house===h||chart.planets.some(x=>x.house===h&&x.name===d.lord));return {links,score:links.length}};
+ const answer=(heading,lead,hs)=>{const v=verdict(heading,hs);let reasons=hs.map(h=>houseLine(h)).join('\n\n');let period='Your current '+d.lord+' Mahadasha ('+d.start+' to '+d.end+') '+(v.links.length?'connects with these houses through the chart, bringing their themes into focus.':'does not directly activate these houses by the simple rule used here; house rulers and transits still matter.');say(heading+'\n\n'+lead+'\n\nWhy this is suggested:\n'+reasons+'\n\nCurrent period:\n'+period,'bot',[['View houses','k:houses'],['View Dasha','k:dasha']])};
+ if(/invest|stock|market|trading|mutual fund|buy shares/.test(ql)){
+  const v=verdict('Investments',wealthH),decision=v.score>=2?'Maybe favourable for measured, long-term decisions':v.score===1?'Mixed—proceed selectively':'A cautious approach is indicated';
+  say('Investment timing: '+decision+'.\n\nAstrological context:\n'+wealthH.map(h=>houseLine(h)).join('\n\n')+'\n\nCurrent period:\nYour '+d.lord+' Mahadasha ('+d.start+' to '+d.end+') '+(v.links.length?'has a chart-rule connection with the money houses used here.':'does not show a direct connection with these money houses under this simplified rule.')+'\n\nPractical note: astrology cannot assess market value, risk, liquidity or returns. Do not make an investment decision from this reading alone.','bot',[['View houses','k:houses'],['View Dasha','k:dasha']]);return}
+ if(t){answer(t[1],t[1]==='Career'?'The chart points to a mix of opportunity and effort rather than a guaranteed outcome. Look for situations where consistency, skill-building and clear decisions can work together.':t[1]==='Marriage'?'This is a traditional chart-based reading of relationship themes, not a certainty about timing or outcomes. Communication and mutual compatibility remain central.':t[1]==='Wealth'?'The chart can be read for earning, saving and resource-management themes, but it cannot guarantee financial outcomes.':t[1]==='Health'?'Astrology is not a medical tool; treat this only as a traditional wellbeing reflection and seek medical advice for health concerns.':'The chart offers traditional themes to reflect on; it should not be treated as a certain prediction.',t[2]);return}
+ if(/yoga|dosha/.test(ql)){const{Y,D}=yogaData();say('Chart review: Yogas and Doshas\n\nYogas checked: '+(Y.length?Y.map(y=>y[0]+' ('+y[2]+')').join('\n'):'None detected by the current rules.')+'\n\nDoshas checked: '+(D.length?D.map(y=>y[0]).join(', '):'None detected by the current rules.')+'\n\nThis is limited to the combinations implemented in Janmapatri.','bot',[['See Yogas','k:yogas']]);return}
+ if(/panchang|tithi|karana|sunrise/.test(ql)){const pp=chart.panchang;say('Birth Panchang\n\nYou were born on '+pp.vara in pp?'':''+' '+(pp?pp.vara:'')+' in '+(pp?pp.paksha+' paksha, tithi '+pp.tithi+'. Yoga: '+pp.yoga+'. Karana: '+pp.karana+'. Sunrise '+(pp.sunrise||'not available')+'.':'Panchang data is unavailable.','bot',[['See Panchang','k:panchang']]);return}
+ if(/lagna|ascendant/.test(ql)){say('Your Lagna is '+chart.lagna.sign+' at '+chart.lagna.formatted+'.\n\n'+houseLine(1)+'\n\nThis describes the traditional first-house framework used in this chart.','bot',[['See chart','k:chart']]);return}
+ if(/moon|rashi|nakshatra/.test(ql)){say('Moon placement\n\nMoon in '+chart.moon.sign+', nakshatra '+chart.moon.nakshatra+', pada '+chart.moon.pada+'.\n\n'+houseLine(chart.planets.find(x=>x.name==='Moon').house),'bot',[['See planets','k:planets']]);return}
+ if(/dasha|period/.test(ql)){say('Current Mahadasha\n\nYou are in '+d.lord+' Mahadasha, from '+d.start+' to '+d.end+'.\n\nThe period is interpreted through '+d.lord+'’s placement and its relationship to the houses in your chart. '+houseLine(pl(d.lord).house),'bot',[['See Dasha','k:dasha']]);return}
+ if(p){say(p.name+' placement\n\n'+p.name+' is in '+p.sign+' at '+p.degree_text+', house '+p.house+', nakshatra '+p.nakshatra+(p.retrograde?', retrograde':', direct')+'.\n\n'+houseLine(p.house),'bot',[['See planets','k:planets']]);return}
+ say('I can answer questions about career, marriage, wealth, health, foreign travel, education, children, property, investments, a planet, Lagna, Moon or Dasha. Try asking in a complete sentence—for example, “Is this a good time to invest?”','bot')
+}
 say('Hello. Generate your Kundli and I will answer from your own calculated chart.','bot');
 $('sugg').innerHTML=['What does my chart say about career?','Tell me about marriage','How are my finances?','Where is Saturn?'].map(q=>'<button type="button" class="chip" data-q="'+q+'">'+q+'</button>').join('');
 $('sugg').onclick=e=>{const b=e.target.closest('[data-q]');if(b)ask(b.dataset.q)};
@@ -78,19 +86,32 @@ $('askForm').onsubmit=e=>{e.preventDefault();ask($('question').value)};
 const GO={Sun:[3,6,10,11],Moon:[1,3,6,7,10,11],Mars:[3,6,11],Mercury:[2,4,6,8,10,11],Jupiter:[2,5,7,9,11],Venus:[1,2,3,4,5,8,9,11,12],Saturn:[3,6,11],Rahu:[3,6,11],Ketu:[3,6,11]};
 let tr=null,trKey='',dsign=0;
 const tile=(h,a,b)=>'<div class="tile"><h3>'+h+'</h3><p>'+a+'</p>'+(b?'<p class="muted" style="margin-top:3px">'+b+'</p>':'')+'</div>';
-async function loadDaily(){$('todayDate').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+async function loadDaily(){
+ $('todayDate').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',year:'numeric',month:'long',day:'numeric'});
  const key=chart?chart.input.latitude+','+chart.input.longitude:'default';
  try{if(!tr||trKey!==key){const r=await fetch('/api/transits'+(chart?'?lat='+chart.input.latitude+'&lon='+chart.input.longitude:''));tr=await r.json();if(!r.ok)throw new Error(tr.error||'request failed');trKey=key}}
  catch(e){tr=null;$('dailyBody').innerHTML='<p class="warn">Could not load today\'s sky: '+e.message+'</p>';return}
  const P=tr.planets,pc=tr.panchang,moon=P[1],base=dsign||(chart?chart.moon.sign_index:0),hf=p=>((p.sign_index-base+12)%12)+1;
  const rows=P.map(p=>{const h=base?hf(p):0,ok=h&&GO[p.name].includes(h);return '<tr><td>'+(symbols[p.name]||'')+' '+p.name+'</td><td>'+p.sign+' '+p.degree_text+'</td><td>'+p.nakshatra+'</td><td>'+(p.retrograde?'Retrograde':'Direct')+'</td>'+(base?'<td>'+h+'</td><td class="'+(ok?'ok':'warn')+'">'+(ok?'Supportive':'Challenging')+'</td>':'')+'</tr>'}).join('');
- const good=base?P.filter(p=>GO[p.name].includes(hf(p))).length:0;
+ const good=base?P.filter(p=>GO[p.name].includes(hf(p))).length;
  const chips=zodiac.map((z,i)=>'<button type="button" class="chip'+(base===i+1?' on':'')+'" data-ds="'+(i+1)+'">'+z+'</button>').join('');
- $('dailyBody').innerHTML='<div class="tiles">'+tile('Moon today',moon.sign,moon.nakshatra)+tile('Tithi',pc.tithi,pc.paksha+' paksha')+tile('Yoga',pc.yoga)+tile('Karana',pc.karana)+tile('Vara',pc.vara,'Ruled by '+pc.vara_lord)+tile('Sunrise and sunset',(pc.sunrise||'—')+' and '+(pc.sunset||'—'),'For '+tr.place)+'</div>'
- +(pc.rahu_kaal?'<div class="tiles" style="margin-top:12px">'+tile('Rahu Kaal',pc.rahu_kaal,'Best avoided for new starts')+tile('Abhijit Muhurta',pc.abhijit,'Generally auspicious')+tile('Yamaganda',pc.yamaganda)+tile('Gulika',pc.gulika)+'</div>':'')
- +'<h3 style="font:20px Georgia,serif;margin:22px 0 4px">How today\'s transits sit with your Moon sign</h3><p class="muted" style="margin:0 0 6px;font-size:13px">'+(chart?'Showing your Moon sign by default. Pick another sign to see it for someone else.':'Pick a Moon sign, or generate your Kundli to use yours.')+'</p><div class="chips">'+chips+'</div>'
- +(base?'<div class="infoitem"><span>From <b class="gold">'+zodiac[base-1]+'</b>, <b class="gold">'+good+' of 9</b> transiting planets are in traditionally supportive houses today.</span></div>':'')
- +'<div class="tablewrap" style="margin-top:12px"><table class="table"><thead><tr><th>Planet</th><th>Sign</th><th>Nakshatra</th><th>Motion</th>'+(base?'<th>House from Moon</th><th>Gochar</th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table></div><div class="notice">Gochar uses classical favourable-house rules counted from the Moon sign. Times are local to the place shown.</div>'}
+ const signName=base?zodiac[base-1]:'a selected Moon sign';
+ const houseText=p=>base?('Transit '+p.name+' is in '+p.sign+', counted as house '+hf(p)+' from '+signName+'. '+(GO[p.name].includes(hf(p))?'This is traditionally considered a supportive placement for this planet.':'This house is traditionally treated as more demanding for this planet.')+' '):('Transit '+p.name+' is in '+p.sign+'. Select a Moon sign to see its house-based interpretation.');
+ const byName=n=>P.find(p=>p.name===n);
+ const section=(h,p)=>'<div class="tile"><h3>'+h+'</h3><p>'+p+'</p></div>';
+ const career=['Sun','Mercury','Saturn','Jupiter'].map(n=>houseText(byName(n))).join(' ');
+ const love=['Venus','Moon','Mars'].map(n=>houseText(byName(n))).join(' ');
+ const money=['Jupiter','Venus','Mercury'].map(n=>houseText(byName(n))).join(' ');
+ const wellbeing=['Moon','Sun','Mars'].map(n=>houseText(byName(n))).join(' ');
+ const overall='Today’s sky is led by the Moon in '+moon.sign+' ('+moon.nakshatra+'), while the Panchang shows '+pc.vara+', '+pc.tithi+' in the '+pc.paksha+' paksha. '+(base?'For '+signName+' Moon, '+good+' of the nine transiting planets fall in traditionally supportive houses, so the day has a blend of easier openings and areas requiring patience.':'Choose a Moon sign below to personalize the house-based reading. These are traditional interpretations of the sky, not factual predictions.');
+ const guidance='Use the day to prioritize rather than overextend. Favor clear conversations, review details before commitments, and avoid reacting impulsively to temporary pressure. The transit table below shows the calculated sky positions used for these interpretations.';
+ $('dailyBody').innerHTML='<div class="tiles">'+tile('Moon today',moon.sign,moon.nakshatra)+tile('Tithi',pc.tithi,pc.paksha+' paksha)+tile('Yoga',pc.yoga)+tile('Karana',pc.karana)+tile('Vara',pc.vara,'Ruled by '+pc.vara_lord)+tile('Sunrise and sunset',(pc.sunrise||'—')+' and '+(pc.sunset||'—'),'For '+tr.place)+'</div>'
+ +(pc.rahu_kaal?'<div class="tiles" style="margin-top:12px">'+tile('Rahu Kaal',pc.rahu_kaal,'Traditionally avoided for new starts')+tile('Abhijit Muhurta',pc.abhijit,'Traditionally auspicious period')+tile('Yamaganda',pc.yamaganda)+tile('Gulika',pc.gulika)+'</div>':'')
+ +'<h3 style="font:20px Georgia,serif;margin:22px 0 4px">Detailed horoscope for '+(base?signName:'today')+'</h3><div class="tile"><h3>Overall</h3><p>'+overall+'</p><p>'+guidance+'</p></div><div class="tiles" style="margin-top:12px">'+section('Career & work',career)+section('Love & relationships',love)+section('Money & decisions',money)+section('Energy & wellbeing',wellbeing)+'</div>'
+ +'<h3 style="font:20px Georgia,serif;margin:22px 0 4px">Personalize by Moon sign</h3><p class="muted" style="margin:0 0 6px;font-size:13px">'+(chart?'Your chart Moon sign is selected by default. Choose another sign to explore.':'Select a Moon sign for a house-based interpretation.')+'</p><div class="chips">'+chips+'</div>'
+ +(base?'<div class="infoitem"><span>From <b class="gold">'+signName+'</b>, <b class="gold">'+good+' of 9</b> transiting planets are in traditionally supportive houses.</span></div>':'')
+ +'<div class="tablewrap" style="margin-top:12px"><table class="table"><thead><tr><th>Planet</th><th>Sign</th><th>Nakshatra</th><th>Motion</th>'+(base?'<th>House from Moon</th><th>Gochar</th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table></div><div class="notice">This detailed horoscope is rule-based, generated from calculated transits and traditional house rules. It is not a scientific prediction, nor a substitute for medical, financial or professional advice.</div>'
+}
 $('dailyBody').addEventListener('click',e=>{const b=e.target.closest('[data-ds]');if(b){dsign=+b.dataset.ds;loadDaily()}});
 
 /* ---- Match making (Male = groom, Female = bride) ---- */
