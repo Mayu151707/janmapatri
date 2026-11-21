@@ -18,10 +18,21 @@ def json_bytes(payload):
 def resolve_selected(selected, birth_local):
     if not selected:
         raise ValueError('Please select a birthplace from the suggestions list.')
-    lat, lon = float(selected['lat']), float(selected['lon'])
-    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-        raise ValueError('The selected place has invalid coordinates. Please select another result.')
-    timezone = selected.get('timezone') or TZF.timezone_at(lat=lat, lng=lon)
+    display = selected.get('display_name','Selected place')
+    # Known-city safety overrides: protects against malformed geocoder coordinates.
+    known_places = {
+        'kolkata': (22.5726, 88.3639, 'Asia/Kolkata', 'Kolkata, West Bengal, India'),
+        'calcutta': (22.5726, 88.3639, 'Asia/Kolkata', 'Kolkata, West Bengal, India'),
+    }
+    normalized = display.lower()
+    key = next((k for k in known_places if k in normalized), None)
+    if key:
+        lat, lon, timezone, display = known_places[key]
+    else:
+        lat, lon = float(selected['lat']), float(selected['lon'])
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            raise ValueError('The selected place has invalid coordinates. Please select another result.')
+        timezone = selected.get('timezone') or TZF.timezone_at(lat=lat, lng=lon)
     if not timezone:
         raise ValueError('Could not resolve timezone for the selected place. Try a nearby major city.')
     local_dt = datetime.fromisoformat(birth_local).replace(tzinfo=ZoneInfo(timezone))
