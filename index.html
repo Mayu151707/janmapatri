@@ -93,7 +93,7 @@ async function loadDaily(){
  catch(e){tr=null;$('dailyBody').innerHTML='<p class="warn">Could not load today\'s sky: '+e.message+'</p>';return}
  const P=tr.planets,pc=tr.panchang,moon=P[1],base=dsign||(chart?chart.moon.sign_index:0),hf=p=>((p.sign_index-base+12)%12)+1;
  const rows=P.map(p=>{const h=base?hf(p):0,ok=h&&GO[p.name].includes(h);return '<tr><td>'+(symbols[p.name]||'')+' '+p.name+'</td><td>'+p.sign+' '+p.degree_text+'</td><td>'+p.nakshatra+'</td><td>'+(p.retrograde?'Retrograde':'Direct')+'</td>'+(base?'<td>'+h+'</td><td class="'+(ok?'ok':'warn')+'">'+(ok?'Supportive':'Challenging')+'</td>':'')+'</tr>'}).join('');
- const good=base?P.filter(p=>GO[p.name].includes(hf(p))).length;
+ const good=base?P.filter(p=>GO[p.name].includes(hf(p))).length:0;
  const chips=zodiac.map((z,i)=>'<button type="button" class="chip'+(base===i+1?' on':'')+'" data-ds="'+(i+1)+'">'+z+'</button>').join('');
  const signName=base?zodiac[base-1]:'a selected Moon sign';
  const houseText=p=>base?('Transit '+p.name+' is in '+p.sign+', counted as house '+hf(p)+' from '+signName+'. '+(GO[p.name].includes(hf(p))?'This is traditionally considered a supportive placement for this planet.':'This house is traditionally treated as more demanding for this planet.')+' '):('Transit '+p.name+' is in '+p.sign+'. Select a Moon sign to see its house-based interpretation.');
