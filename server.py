@@ -5,7 +5,7 @@ import json, os, urllib.request
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from timezonefinder import TimezoneFinder
-from engine import chart
+from engine import chart, transits
 
 BASE_DIR = Path(__file__).resolve().parent
 TZF = TimezoneFinder()
@@ -62,6 +62,9 @@ class Handler(BaseHTTPRequestHandler):
         parsed=urlparse(self.path)
         if parsed.path in ('/health','/api/health'):
             return self.send_json(200,{'status':'ok','app':'Janmapatri','version':'5.0'})
+        if parsed.path=='/api/transits':
+            try: return self.send_json(200,transits())
+            except Exception as e: return self.send_json(500,{'error':str(e)})
         if parsed.path=='/api/places':
             query=parse_qs(parsed.query).get('q',[''])[0].strip()
             if len(query)<2: return self.send_json(200,{'results':[]})

@@ -23,8 +23,8 @@ def chart(birth_iso, lat, lon, tz_offset):
  planets=[]
  for name,body in PLANETS:
   xx,ret=swe.calc_ut(jd,body,flags)
-  lon=norm(xx[0]); info=sign_info(lon); nakidx=int(lon/(360/27)); pada=int((lon%(360/27))/(360/108))
-  planets.append({'name':name,'longitude':lon,'sign':info['sign'],'sign_index':info['sign_index'],'degree':info['degree'],'degree_text':info['formatted'],'nakshatra':NAKSHATRAS[nakidx],'nakshatra_index':nakidx+1,'pada':pada,'retrograde':xx[3]<0,'speed':xx[3]})
+  plon=norm(xx[0]); info=sign_info(plon); nakidx=int(plon/(360/27)); pada=int((plon%(360/27))/(360/108))
+  planets.append({'name':name,'longitude':plon,'sign':info['sign'],'sign_index':info['sign_index'],'degree':info['degree'],'degree_text':info['formatted'],'nakshatra':NAKSHATRAS[nakidx],'nakshatra_index':nakidx+1,'pada':pada,'retrograde':xx[3]<0,'speed':xx[3]})
  # Ketu opposite Rahu
  rahu=next(p for p in planets if p['name']=='Rahu'); ketulon=norm(rahu['longitude']+180); info=sign_info(ketulon); ni=int(ketulon/(360/27)); pada=int((ketulon%(360/27))/(360/108))
  planets.append({'name':'Ketu','longitude':ketulon,'sign':info['sign'],'sign_index':info['sign_index'],'degree':info['degree'],'degree_text':info['formatted'],'nakshatra':NAKSHATRAS[ni],'nakshatra_index':ni+1,'pada':pada,'retrograde':True,'speed':-rahu['speed']})
@@ -55,3 +55,20 @@ def chart(birth_iso, lat, lon, tz_offset):
   dasha.append({'lord':lord,'start':cursor.date().isoformat(),'end':end.date().isoformat(),'years':yrs,'birth_balance_years':round(balance,2) if lord==startlord else None})
   cursor=end
  return {'input':{'birth_local':birth_iso,'latitude':float(lat),'longitude':float(lon),'timezone_offset':float(tz_offset)},'ayanamsa':'Lahiri','house_system':'Whole sign','julian_day':jd,'lagna':{'longitude':asc,**lagna},'moon':moon,'planets':planets,'dasha':dasha}
+
+def transits(when=None):
+ # Current sidereal (Lahiri) sky. Used by the Daily horoscope page.
+ from datetime import timezone
+ dt=when or datetime.now(timezone.utc)
+ jd=swe.julday(dt.year,dt.month,dt.day,dt.hour+dt.minute/60+dt.second/3600)
+ swe.set_sid_mode(swe.SIDM_LAHIRI)
+ flags=swe.FLG_SWIEPH|swe.FLG_SPEED|swe.FLG_SIDEREAL
+ out=[]
+ def row(name,lon,retro):
+  info=sign_info(lon); ni=int(norm(lon)/(360/27))
+  return {'name':name,'longitude':norm(lon),'sign':info['sign'],'sign_index':info['sign_index'],'degree_text':info['formatted'],'nakshatra':NAKSHATRAS[ni],'retrograde':retro}
+ for name,body in PLANETS:
+  xx,ret=swe.calc_ut(jd,body,flags)
+  out.append(row(name,xx[0],xx[3]<0))
+ out.append(row('Ketu',out[-1]['longitude']+180,True))
+ return {'as_of':dt.isoformat(),'ayanamsa':'Lahiri','planets':out}
