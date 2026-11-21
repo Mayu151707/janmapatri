@@ -54,19 +54,37 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path=='/api/places':
             query=parse_qs(parsed.query).get('q',[''])[0].strip()
             if len(query)<2: return self.send_json(200,{'results':[]})
-            params=urlencode({'q':query,'format':'jsonv2','addressdetails':1,'limit':8})
-            req=urllib.request.Request('https://nominatim.openstreetmap.org/search?'+params,headers={'User-Agent':USER_AGENT,'Accept-Language':'en'})
+            results=[]
+            # Primary: Photon geocoder (global city/town autocomplete; no API key).
             try:
-                with urllib.request.urlopen(req,timeout=15) as response: raw=json.loads(response.read().decode('utf-8'))
-                results=[]
-                for item in raw:
-                    lat,lon=float(item['lat']),float(item['lon'])
+                params=urlencode({'q':query,'limit':8})
+                req=urllib.request.Request('https://photon.komoot.io/api/?'+params,headers={'User-Agent':USER_AGENT,'Accept-Language':'en'})
+                with urllib.request.urlopen(req,timeout=12) as response: raw=json.loads(response.read().decode('utf-8'))
+                for feature in raw.get('features',[]):
+                    props=feature.get('properties',{}); coords=feature.get('geometry',{}).get('coordinates',[])
+                    if len(coords)<2: continue
+                    lon,lat=float(coords[0]),float(coords[1])
                     zone=TZF.timezone_at(lat=lat,lng=lon)
                     if not zone: continue
-                    results.append({'display_name':item.get('display_name',item.get('name',query)),'lat':lat,'lon':lon,'timezone':zone})
-                return self.send_json(200,{'results':results})
+                    parts=[props.get(k) for k in ('name','city','state','country')]
+                    display=', '.join(dict.fromkeys(str(x) for x in parts if x))
+                    results.append({'display_name':display or query,'lat':lat,'lon':lon,'timezone':zone})
             except Exception as e:
-                return self.send_json(502,{'error':'Place lookup temporarily unavailable. Please try again.','detail':str(e)})
+                print('Photon geocoding failed: '+repr(e),flush=True)
+            # Fallback: Nominatim.
+            if not results:
+                try:
+                    params=urlencode({'q':query,'format':'jsonv2','addressdetails':1,'limit':8})
+                    req=urllib.request.Request('https://nominatim.openstreetmap.org/search?'+params,headers={'User-Agent':USER_AGENT,'Accept-Language':'en'})
+                    with urllib.request.urlopen(req,timeout=12) as response: raw=json.loads(response.read().decode('utf-8'))
+                    for item in raw:
+                        lat,lon=float(item['lat']),float(item['lon'])
+                        zone=TZF.timezone_at(lat=lat,lng=lon)
+                        if not zone: continue
+                        results.append({'display_name':item.get('display_name',item.get('name',query)),'lat':lat,'lon':lon,'timezone':zone})
+                except Exception as e:
+                    print('Nominatim geocoding failed: '+repr(e),flush=True)
+            return self.send_json(200,{'results':results,'provider':'Photon' if results else 'none'})
         if parsed.path in ('/','/index.html'):
             try: body=(BASE_DIR/'index.html').read_bytes()
             except Exception: return self.send_json(500,{'error':'Website file missing.'})
